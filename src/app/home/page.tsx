@@ -163,97 +163,136 @@ export default function HomePage() {
   return (
     <main className="w-full min-h-screen bg-[#f5f7fa] pt-0 pb-20">
       <TopBar icon={<Home size={20} className="text-gray-700" />} title="홈" />
+      {/* ✅ 광고 배너 추가 (OKX 등) */}
+<div className="px-3 pt-2">
+  <img
+    src="/okx.png"  // ✅ 이미지 경로 또는 외부 링크로 대체 가능
+    alt="광고 배너"
+    className="w-full rounded-xl shadow mb-2"
+  />
+</div>
+
       <div className="max-w-[500px] mx-auto px-3 pt-2 space-y-2">
-        {/* 오늘의 리워드 */}
-        <section className="bg-white rounded-xl shadow px-4 py-2">
-  <div className="flex justify-between items-center mb-2">
-    <h3 className="text-lg font-bold text-gray-800">오늘의 리워드</h3>
-    <p className="text-2xl font-bold text-black">{(investReward + referralReward).toFixed(2)} USDT</p>
+{/* ✅ 오늘의 리워드 카드 (말풍선 스타일 포함) */}
+<section className="bg-white rounded-xl shadow px-4 pt-3 pb-0 relative">
+  <div className="flex justify-between items-center">
+    <h3 className="text-base font-bold text-gray-800">오늘의 리워드</h3>
+    <p className="text-xl font-bold text-black">{(investReward + referralReward).toFixed(2)} USDT</p>
   </div>
-  <div className="text-sm space-y-1">
-    <p className="flex justify-between">
-      <span className="text-gray-500">투자리워드</span>
-      <span className="font-semibold text-gray-800">{investReward.toFixed(2)} USDT</span>
-    </p>
-    <p className="flex justify-between">
-      <span className="text-gray-500">추천리워드</span>
-      <span className="font-semibold text-gray-800">{referralReward.toFixed(2)} USDT</span>
-    </p>
+
+  {/* 말풍선 형태 안내문 */}
+  <div className="w-full mt-2 mb-0">
+    <div className="bg-gray-200 rounded-full px-4 py-1 text-center text-[13px] text-gray-700">
+      어제의 리워드가 매일 오후 3시 이전에 자동 입금돼요.
+    </div>
   </div>
-  <p className="mt-1 text-xs text-gray-400">※ 매일 오전 9시 이전에 자동 입금됩니다.</p>
 </section>
 
+{/* ✅ 트레이딩 뷰 차트 받아보기 CTA */}
+<div
+  onClick={() => router.push("/chart")} // 페이지 경로는 필요에 따라 변경
+  className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3 cursor-pointer"
+>
+  <div className="flex items-center space-x-2">
+    <img src="/chart.png" alt="차트" className="w-10 h-10" />
+    <span className="text-sm font-semibold text-blue-600">
+      트레이딩 뷰 차트 받아보기
+    </span>
+  </div>
+  <span className="text-blue-600 text-lg font-bold">{`>`}</span>
+</div>
 
-        {/* 지갑 주소 */}
-        <section className="bg-white rounded-xl shadow overflow-hidden">
-          <div className="bg-blue-600 text-white text-md font-semibold px-4 py-1">
-            나의 지갑 입금 주소
-          </div>
-          <div className="p-3 text-center">
-            <p className="text-[11px] font-mono text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis mb-1">
-              {address}
-            </p>
-            <p className="text-[10px] text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis mb-2">
-              ※ 해당 주소는 POLYGON 체인의 USDT 입금만 지원합니다.
-            </p>
-            <button
-              onClick={handleCopy}
-              className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-1.5 rounded-md text-sm font-semibold hover:bg-blue-200"
-            >
-              <Copy className="w-4 h-4 mr-1" /> 주소 복사하기
-            </button>
-          </div>
-        </section>
 
-        {/* 코인 자산 */}
-     <section className="bg-white rounded-xl shadow">
-  <div className="bg-blue-600 text-white text-md font-semibold px-4 py-1 rounded-t-xl">나의 코인 자산</div>
-  <div className="p-3 space-y-2">
+{/* ✅ 나의 자산 카드 (USDT) */}
+<section className="bg-white rounded-xl shadow overflow-hidden">
+  <div className="bg-blue-600 text-white text-md font-semibold px-4 py-1">
+    나의 자산
+  </div>
+
+  <div className="p-4 space-y-3">
+    {/* USDT 잔액 */}
     <div className="flex justify-between items-center">
       <div className="flex items-center space-x-2">
-        <img src="/tether-icon.png" alt="USDT" className="w-6 h-6" />
-        <span className="font-semibold text-gray-800">Tether</span>
+        <img src="/tether-icon.png" alt="USDT" className="w-7 h-7" />
+        <span className="font-semibold text-gray-600">Tether</span>
       </div>
-      <span className="text-gray-800 font-semibold">{usdtBalance}</span>
+      <span className="text-gray-900 font-bold text-base">{usdtBalance}</span>
     </div>
-    <button
-      onClick={() => router.push("/withdraw")}
-      className="w-full bg-blue-100 text-blue-700 py-1.5 rounded-md text-sm font-semibold hover:bg-blue-200"
-    >
-      출금하기
-    </button>
+
+    {/* 입금 / 출금 버튼 */}
+    <div className="flex space-x-2">
+      <button
+        onClick={() => router.push("/deposit")}
+        className="w-1/2 py-2 rounded bg-blue-100 text-blue-700 text-sm font-semibold hover:bg-blue-200"
+      >
+        입금하기
+      </button>
+      <button
+        onClick={() => router.push("/withdraw")}
+        className="w-1/2 py-2 rounded bg-blue-100 text-blue-700 text-sm font-semibold hover:bg-blue-200"
+      >
+        출금하기
+      </button>
+    </div>
   </div>
 </section>
 
-        {/* NFT 자산 */}
-        <section className="bg-white rounded-xl shadow">
-          <div className="bg-blue-600 text-white text-md font-semibold px-4 py-1 rounded-t-xl">나의 NFT 자산</div>
-          <div className="px-3 py-2 space-y-1">
-            {[{
-              name: "SNOWBOT 300",
-              image: "/snow100.png",
-              type: "nft300",
-            }, {
-              name: "SNOWBOT 3000",
-              image: "/snowbot3000.png",
-              type: "nft3000",
-            }, {
-              name: "SNOWBOT 10000",
-              image: "/snowbot10000.png",
-              type: "nft10000",
-            }].map((nft) => (
-              <div key={nft.type} className="flex items-center space-x-4">
-                <img src={nft.image} alt={nft.name} className="w-12 h-12 rounded-xl border" />
-                <div>
-                  <p className="font-semibold text-gray-800">{nft.name}</p>
-                  <p className="text-sm text-gray-500">
-                    보유 수량: <span className="text-blue-600 font-bold">{nftBalances[nft.type as NFTType]}개</span>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+{/* ✅ 패스권 구입하기 카드 */}
+<section className="bg-white rounded-xl shadow px-4 py-3">
+  <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
+
+  {[
+    {
+      title: "300 PASS",
+      price: "3000 USDT / 1개월",
+      image: "/pass-300.png",
+      status: "신청가능",
+    },
+    {
+      title: "1800 PASS",
+      price: "1800 USDT / 6개월",
+      image: "/pass-1800.png",
+      status: "수강중",
+    },
+    {
+      title: "3600 PASS",
+      price: "3600 USDT / 12개월",
+      image: "/pass-3600.png",
+      status: "신청가능",
+    },
+    {
+      title: "VIP PASS",
+      price: "10000 USDT / 무제한",
+      image: "/pass-vip.png",
+      status: "신청가능",
+    },
+  ].map((pass, idx) => (
+    <div key={idx} className="flex items-center justify-between py-2">
+      <div className="flex items-center space-x-3">
+        <img src={pass.image} alt={pass.title} className="w-9 h-9" />
+        <div>
+          <p className="font-bold text-gray-800 text-sm">{pass.title}</p>
+          <p className="text-[12px] text-gray-500">{pass.price}</p>
+        </div>
+      </div>
+
+      {/* 상태 버튼 */}
+      {pass.status === "수강중" ? (
+        <span className="text-[12px] font-semibold text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+          수강중
+        </span>
+      ) : (
+        <button
+          onClick={() => alert(`${pass.title} 신청 페이지로 이동`)}
+          className="text-[12px] font-semibold text-white bg-blue-500 px-3 py-1 rounded-full hover:bg-blue-600"
+        >
+          수강신청
+        </button>
+      )}
+    </div>
+  ))}
+</section>
+
       </div>
       <BottomNav />
     </main>
