@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,9 +10,25 @@ export default function RegisterInfoPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [emailId, setEmailId] = useState(""); // @gmail.com 앞부분만 입력
-  const [phoneSuffix, setPhoneSuffix] = useState(""); // 010 뒤 8자리
-  const [error, setError] = useState("");
+  const [emailId, setEmailId] = useState("");
+  const [phoneSuffix, setPhoneSuffix] = useState("");
+  const [selectedCenterId, setSelectedCenterId] = useState("CENTER001");
+  const [refBy, setRefBy] = useState("RS10100");
+  const [centers, setCenters] = useState([]);
+
+  useEffect(() => {
+    // ✅ 센터 목록 불러오기
+    const fetchCenters = async () => {
+      const { data } = await supabase.from("centers").select("id, center_name");
+      if (data) setCenters(data);
+    };
+
+    // ✅ localStorage 추천코드 있으면 자동 세팅
+    const savedRef = localStorage.getItem("ref_code");
+    if (savedRef) setRefBy(savedRef);
+
+    fetchCenters();
+  }, []);
 
   const handleSubmit = async () => {
     if (!account?.address) {
@@ -30,7 +46,7 @@ export default function RegisterInfoPage() {
       return;
     }
 
-    // ✅ 이름 중복 검사
+    // ✅ 이름 중복 확인
     const { data: existingName } = await supabase
       .from("users")
       .select("id")
@@ -47,7 +63,13 @@ export default function RegisterInfoPage() {
 
     const { error } = await supabase
       .from("users")
-      .update({ name: name.trim(), email, phone })
+      .update({
+        name: name.trim(),
+        email,
+        phone,
+        center_id: selectedCenterId,
+        ref_by: refBy.trim(),
+      })
       .eq("wallet_address", account.address.toLowerCase());
 
     if (error) {
@@ -63,7 +85,7 @@ export default function RegisterInfoPage() {
         <h2 className="text-lg font-semibold text-[#333]">📋 정보 입력하기</h2>
         <p className="text-sm text-[#555]">서비스 이용을 위해 아래의 정보를 입력 후 제출해주세요.</p>
 
-        {/* 이름 입력 */}
+        {/* 이름 */}
         <input
           className="w-full p-3 border border-gray-300 rounded-lg bg-white placeholder-gray-400"
           placeholder="성함을 입력하세요."
@@ -71,7 +93,7 @@ export default function RegisterInfoPage() {
           onChange={(e) => setName(e.target.value)}
         />
 
-        {/* 이메일 입력 */}
+        {/* 이메일 */}
         <div className="relative">
           <input
             type="text"
@@ -85,7 +107,7 @@ export default function RegisterInfoPage() {
           </span>
         </div>
 
-        {/* 전화번호 입력 */}
+        {/* 전화번호 */}
         <div className="flex items-center gap-2">
           <span className="px-4 py-3 rounded-lg bg-gray-200 text-sm">010</span>
           <input
@@ -98,6 +120,34 @@ export default function RegisterInfoPage() {
               setPhoneSuffix(val.slice(0, 8));
             }}
             className="flex-1 p-3 border border-gray-300 rounded-lg bg-white placeholder-gray-400"
+          />
+        </div>
+
+        {/* ✅ 센터 선택 */}
+        <div>
+          <label className="block mb-1 text-sm text-[#555]">센터 선택</label>
+          <select
+            className="w-full p-3 border border-gray-300 rounded-lg bg-white"
+            value={selectedCenterId}
+            onChange={(e) => setSelectedCenterId(e.target.value)}
+          >
+            {centers.map((center) => (
+              <option key={center.id} value={center.id}>
+                {center.center_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* ✅ 추천인 코드 */}
+        <div>
+          <label className="block mb-1 text-sm text-[#555]">추천인 코드 (자동입력 가능)</label>
+          <input
+            type="text"
+            placeholder="예: RS10100"
+            value={refBy}
+            onChange={(e) => setRefBy(e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg bg-white placeholder-gray-400"
           />
         </div>
 

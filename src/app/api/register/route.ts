@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// 추천코드 생성 함수 (SW10100부터 증가)
+// 추천코드 생성 함수 (RS10100부터 증가)
 async function generateNextReferralCode(): Promise<string> {
   const { data, error } = await supabase
     .from("users")
@@ -20,13 +20,13 @@ async function generateNextReferralCode(): Promise<string> {
     throw error;
   }
 
-  let newNumber = 10100;
+  let newNumber = 1000;
   if (data.length > 0 && data[0].ref_code?.startsWith("SW")) {
     const lastNum = parseInt(data[0].ref_code.slice(2));
     newNumber = lastNum + 1;
   }
 
-  return `SW${newNumber}`;
+  return `RS${newNumber}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     wallet_address,
     email = "",  
     phone = "01000000000",
-    ref_by = "SW10100",
+    ref_by = "RS10100",
     name = "", // ✅ name 파라미터 받음
   } = body;
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 🧠 추천인 정보 확인 → 센터 ID 계산
-  let center_id = "SW10100"; // 기본 센터
+  let center_id = "RS10100"; // 기본 센터
   const { data: referrer, error: referrerError } = await supabase
     .from("users")
     .select("role, center_id, ref_code")
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (referrer.role === "center") {
       center_id = referrer.ref_code;
     } else {
-      center_id = referrer.center_id || "SW10100";
+      center_id = referrer.center_id || "RS10100";
     }
   }
 

@@ -22,7 +22,7 @@ useEffect(() => {
   setCalled(true);
 
   // ✅ localStorage에서 추천 코드 가져오기
-  let refBy = "SW10100";
+  let refBy = "RS10100";
   if (typeof window !== "undefined") {
     const savedRef = localStorage.getItem("ref_code");
     if (savedRef) {
@@ -72,7 +72,7 @@ useEffect(() => {
   return (
     <>
       <Head>
-        <title>SMW01 스마트 월렛</title>
+        <title>ROLLING STONES</title>
       </Head>
 
       <main className="min-h-screen flex flex-col justify-between bg-[#f8fafc] px-4 py-6 max-w-md mx-auto text-center">
