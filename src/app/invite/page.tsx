@@ -5,26 +5,35 @@ import { useActiveAccount } from "thirdweb/react";
 import { supabase } from "@/lib/supabaseClient";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
-import Link from "next/link";
 
-interface Invitee {
-  ref_code: string;
+interface UserNode {
   name: string;
+  ref_code: string;
+  grade: string;
   created_at: string;
-  total_reward: number;
-  nft300: number;
-  nft3000: number;
-  nft10000: number;
+  children?: UserNode[];
 }
+
+const GRADE_LABELS: Record<string, string> = {
+  v1: "일반회원",
+  v2: "실버회원",
+  v3: "골드회원",
+  v4: "초보강사",
+  v5: "선임강사",
+  v6: "센터장",
+  v7: "마스터센터장",
+  v8: "골드센터장",
+  v9: "회사",
+};
 
 export default function InvitePage() {
   const account = useActiveAccount();
   const [refCode, setRefCode] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
-  const [invitees, setInvitees] = useState<Invitee[]>([]);
+  const [treeData, setTreeData] = useState<UserNode[]>([]);
 
-  // ✅ 추천코드 + 초대링크 생성
+  // ✅ 내 초대코드 + 초대링크
   useEffect(() => {
     const loadRefCode = async () => {
       if (!account?.address) return;
@@ -44,33 +53,63 @@ export default function InvitePage() {
     loadRefCode();
   }, [account]);
 
-  // ✅ 내가 초대한 유저 목록 불러오기
+  // ✅ 조직도 불러오기 및 트리 구성
   useEffect(() => {
-    const loadInvitees = async () => {
+    const fetchHierarchy = async () => {
       if (!refCode) return;
 
-      const { data } = await supabase
+      const { data: allUsers } = await supabase
         .from("users")
-        .select("ref_code, name, created_at")
-        .eq("ref_by", refCode)
-        .order("created_at", { ascending: false });
+        .select("ref_code, ref_by, name, grade, joined_at");
 
-      if (data) {
-        setInvitees(
-          data.map((user: any) => ({
-            ref_code: user.ref_code,
-            name: user.name || user.ref_code,
-            created_at: user.created_at,
-            total_reward: 0,
-            nft300: 0,
-            nft3000: 0,
-            nft10000: 0,
-          }))
-        );
+      if (!allUsers) return;
+
+      const map = new Map<string, UserNode>();
+      allUsers.forEach(u => {
+        map.set(u.ref_code, {
+          name: u.name,
+          ref_code: u.ref_code,
+          grade: u.grade,
+          created_at: u.joined_at,
+          children: [],
+        });
+      });
+
+      allUsers.forEach(u => {
+        const node = map.get(u.ref_code)!;
+        if (u.ref_by && map.has(u.ref_by)) {
+          map.get(u.ref_by)!.children!.push(node);
+        }
+      });
+
+      const myNode = map.get(refCode);
+      if (myNode) {
+        setTreeData([myNode]);
       }
     };
-    loadInvitees();
+
+    fetchHierarchy();
   }, [refCode]);
+
+  // ✅ 조직도 텍스트 출력 함수 (초대코드 제거)
+  function renderTreeTable(nodes: UserNode[], indent = ""): string {
+    return nodes
+      .map((node) => {
+        const indentPrefix = indent + (indent ? "└ " : "");
+        const nameAndGrade = `${indentPrefix}${node.name} [${GRADE_LABELS[node.grade] || node.grade}]`;
+
+        const nameField = nameAndGrade.padEnd(42, " "); // 넉넉히 조절
+        const dateField = new Date(new Date(node.created_at).getTime() + 9 * 3600000)
+          .toISOString()
+          .slice(0, 10);
+
+        return `${nameField}${dateField}` +
+          (node.children && node.children.length > 0
+            ? "\n" + renderTreeTable(node.children, indent + "  ")
+            : "");
+      })
+      .join("\n");
+  }
 
   // ✅ 초대링크 복사
   const handleCopy = async () => {
@@ -99,12 +138,12 @@ export default function InvitePage() {
               </div>
               {inviteLink && (
                 <>
-                  <div className="text-left break-all  mt-6">
+                  <div className="text-left break-all mt-6">
                     <span className="font-semibold">초대링크 :</span> {inviteLink}
                   </div>
                   <button
                     onClick={handleCopy}
-                    className="w-full bg-blue-100 hover:bg-blue-200 text-blue-600 py-2 rounded-lg text-sm font-semibold  mt-4"
+                    className="w-full bg-blue-100 hover:bg-blue-200 text-blue-600 py-2 rounded-lg text-sm font-semibold mt-4"
                   >
                     {copied ? "✅ 복사됨" : "초대 링크 복사하기"}
                   </button>
@@ -113,45 +152,17 @@ export default function InvitePage() {
             </div>
           </section>
 
-          {/* ✅ 초대한 친구 목록 */}
+          {/* ✅ 조직도 출력 */}
           <section className="bg-white rounded-xl shadow overflow-hidden">
             <div className="bg-blue-600 text-white px-3 py-1 font-semibold text-base">
-              나의 초대 친구
+              초대 조직도
             </div>
             <div className="px-3 py-4">
-              {invitees.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-center">
-                    <thead>
-                      <tr className="bg-transparent text-gray-700 font-semibold">
-                        <th className="p-2">초대친구</th>
-                        <th className="p-2">가입날짜</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invitees.map((user, idx) => (
-                        <tr key={idx} className="border-t">
-                          <td className="p-2 text-left">
-                            <div className="flex items-center gap-1">
-                              <span>{user.name}</span>
-                              <Link href={`/invite-detail?code=${user.ref_code}`}>
-                                <button className="bg-gray-200 text-[10px] px-2 py-0.5 rounded">
-                                  상세보기
-                                </button>
-                              </Link>
-                            </div>
-                          </td>
-                          <td className="p-2">
-                            {(() => {
-                              const kst = new Date(new Date(user.created_at).getTime() + 9 * 60 * 60 * 1000);
-                              return `${kst.getFullYear()}. ${kst.getMonth() + 1}. ${kst.getDate()}.`;
-                            })()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              {treeData.length > 0 ? (
+                <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
+이름 / 등급                                      가입일
+{`\n${renderTreeTable(treeData)}`}
+                </pre>
               ) : (
                 <p className="text-center text-xs text-gray-400 py-4">초대한 친구가 없습니다.</p>
               )}

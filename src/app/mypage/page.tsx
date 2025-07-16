@@ -23,7 +23,7 @@ export default function MyPage() {
 
       const { data: user, error } = await supabase
         .from("users")
-        .select("name, phone, email, created_at, ref_by, joined_at") // ✅ joined_at 추가
+        .select("name, phone, email, created_at, ref_by, joined_at")
         .eq("wallet_address", account.address.toLowerCase())
         .maybeSingle();
 
@@ -171,16 +171,15 @@ export default function MyPage() {
                 <span className="text-gray-800">{userData?.email || "-"}</span>
               </div>
 
-{/* 가입 일시 */}
-<div className="flex justify-between px-4 py-3">
-  <span>가입 일시</span>
-  <span className="text-gray-800">
-    {userData?.joined_at
-      ? userData.joined_at.slice(0, 19).replace("T", " ")
-      : "-"}
-  </span>
-</div>
-
+              {/* 가입 일시 */}
+              <div className="flex justify-between px-4 py-3">
+                <span>가입 일시</span>
+                <span className="text-gray-800">
+                  {userData?.joined_at
+                    ? userData.joined_at.slice(0, 19).replace("T", " ")
+                    : "-"}
+                </span>
+              </div>
 
               {/* 추천인 */}
               <div className="flex justify-between px-4 py-3">
@@ -194,21 +193,13 @@ export default function MyPage() {
           <section className="mb-2">
             <h2 className="text-md font-semibold text-gray-700 mb-1 pl-2">내역관리</h2>
             <div className="bg-white rounded-xl shadow border text-sm divide-y divide-gray-200">
-              {[
-                { label: "NFT 구매 내역", path: "/mypage/history/nft-purchase" },
-                { label: "NFT 양도 내역", path: "/mypage/history/nft-transfer" },
-                { label: "NFT 해지 내역", path: "/mypage/history/nft-burn" },
-                { label: "USDT 입출금 내역", path: "/mypage/history/usdt" },
-              ].map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => router.push(item.path)}
-                  className="w-full px-4 py-3 hover:bg-gray-50 flex justify-between items-center"
-                >
-                  <span>{item.label}</span>
-                  <img src="/icon-go.png" alt="이동" className="w-4 h-4" />
-                </button>
-              ))}
+              <button
+                onClick={() => router.push("/mypage/history/usdt")}
+                className="w-full px-4 py-3 hover:bg-gray-50 flex justify-between items-center"
+              >
+                <span>USDT 입출금 내역</span>
+                <img src="/icon-go.png" alt="이동" className="w-4 h-4" />
+              </button>
             </div>
           </section>
 
