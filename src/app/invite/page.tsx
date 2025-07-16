@@ -98,7 +98,7 @@ export default function InvitePage() {
         const indentPrefix = indent + (indent ? "└ " : "");
         const nameAndGrade = `${indentPrefix}${node.name} [${GRADE_LABELS[node.grade] || node.grade}]`;
 
-        const nameField = nameAndGrade.padEnd(42, " "); // 넉넉히 조절
+        const nameField = nameAndGrade.padEnd(38, " "); // 넉넉히 조절
         const dateField = new Date(new Date(node.created_at).getTime() + 9 * 3600000)
           .toISOString()
           .slice(0, 10);
@@ -160,7 +160,7 @@ export default function InvitePage() {
             <div className="px-3 py-4">
               {treeData.length > 0 ? (
                 <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
-이름 / 등급                                      가입일
+이름 / 등급                                 가입일
 {`\n${renderTreeTable(treeData)}`}
                 </pre>
               ) : (
