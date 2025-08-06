@@ -102,7 +102,7 @@ function renderTree(
   node: UserNode,
   prefix: string = "",
   isLast: boolean = true
-): JSX.Element {
+): React.ReactElement {
   const hasChildren = node.children.length > 0;
   const branchSymbol = prefix ? (isLast ? "└─ " : "├─ ") : "";
   const childPrefix = prefix + (isLast ? "   " : "│  ");
