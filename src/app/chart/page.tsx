@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import ChartSuccessModal from "@/components/ChartSuccessModal";
+import { useRouter } from "next/navigation"; // ✅ router 추가
 
 export default function ChartRegisterPage() {
   const [uid, setUid] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const router = useRouter(); // ✅ router 초기화
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +23,14 @@ export default function ChartRegisterPage() {
   return (
     <main className="min-h-screen bg-[#f5f7fa] pb-20">
       {/* ✅ 상단: 이미지 배너 */}
-      <div className="w-full overflow-hidden">
+      <div className="w-full overflow-hidden relative">
+        {/* 🔙 백 버튼 */}
+        <button
+          onClick={() => router.back()}
+          className="absolute top-4 left-4 z-10 bg-black bg-opacity-30 text-white text-sm px-3 py-1 rounded-full hover:bg-opacity-50"
+        >
+          ← Back
+        </button>
         <img src="/tv.png" alt="TradingView" className="w-full object-cover" />
       </div>
 

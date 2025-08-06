@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "관리자 페이지",
-  description: "SNW03 관리자 기능",
+  description: "ROLLING STONES 관리자 기능",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

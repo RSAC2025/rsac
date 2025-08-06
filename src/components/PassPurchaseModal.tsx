@@ -67,82 +67,135 @@ export default function PassPurchaseModal({
     });
   }, []);
 
-  const handlePurchase = async () => {
-    if (!account?.address) {
-      alert("지갑이 연결되지 않았습니다.");
+const handlePurchase = async () => {
+  if (!account?.address) {
+    alert("지갑이 연결되지 않았습니다.");
+    return;
+  }
+
+  if (insufficient) {
+    alert("잔액이 부족합니다.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const amount = BigInt(Math.floor(selected.price * 1e6));
+
+    const tx = prepareContractCall({
+      contract,
+      method: "function transfer(address _to, uint256 _value) returns (bool)",
+      params: [RECEIVER, amount],
+    });
+
+    const result = await sendTransaction({
+      account,
+      transaction: tx,
+    });
+
+    setTxHash(result.transactionHash);
+    setShowSuccessModal(true);
+
+    // ✅ Supabase 유저 조회
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("wallet_address", account.address.toLowerCase())
+      .single();
+
+    if (userError) {
+      console.error("❌ 유저 정보 조회 실패:", userError);
       return;
     }
 
-    if (insufficient) {
-      alert("잔액이 부족합니다.");
-      return;
+    // ✅ 기간 계산
+    const now = new Date();
+    const expired = new Date(now);
+    if (selected.period.includes("개월")) {
+      const months = parseInt(selected.period.replace("개월", "").trim());
+      expired.setMonth(expired.getMonth() + months);
+    } else if (selected.period.includes("무제한")) {
+      expired.setFullYear(2099);
     }
 
-    setLoading(true);
-    try {
-      const amount = BigInt(Math.floor(selected.price * 1e6));
+    // ✅ 수강 내역 저장
+    const { error: insertError } = await supabase.from("enrollments").insert({
+      ref_code: user.ref_code,
+      invited_by_code: user.ref_by,
+      center_code: user.center_id,
+      student_name: user.name,
+      tv_account_id: user.tv_id,
+      pass_type: selected.name,
+      pass_expired_at: expired.toISOString().split("T")[0],
+      memo: "결제 완료",
+      created_at: getKSTISOString(),
+    });
 
-      const tx = prepareContractCall({
-        contract,
-        method: "function transfer(address _to, uint256 _value) returns (bool)",
-        params: [RECEIVER, amount],
-      });
-
-      const result = await sendTransaction({
-        account,
-        transaction: tx,
-      });
-
-      setTxHash(result.transactionHash);
-      setShowSuccessModal(true);
-
-      // ✅ Supabase에 저장
-      const { data: user, error: userError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("wallet_address", account.address.toLowerCase())
-        .single();
-
-      if (userError) {
-        console.error("❌ 유저 정보 조회 실패:", userError);
-        return;
-      }
-
-      // ✅ 기간 계산
-      const now = new Date();
-      const expired = new Date(now);
-      if (selected.period.includes("개월")) {
-        const months = parseInt(selected.period.replace("개월", "").trim());
-        expired.setMonth(expired.getMonth() + months);
-      } else if (selected.period.includes("무제한")) {
-        expired.setFullYear(2099);
-      }
-
-      // ✅ 수강 내역 저장
-      const { error: insertError } = await supabase.from("enrollments").insert({
-        ref_code: user.ref_code,
-        invited_by_code: user.ref_by,
-        center_code: user.center_id,
-        student_name: user.name,
-        tv_account_id: user.tv_id,
-        pass_type: selected.name,
-        pass_expired_at: expired.toISOString().split("T")[0],
-        memo: "결제 완료",
-        created_at: getKSTISOString(),
-      });
-
-      if (insertError) {
-        console.error("❌ 수강 내역 저장 실패:", insertError);
-      }
-
-      if (onPurchased) onPurchased();
-    } catch (err) {
-      console.error("❌ 결제 실패:", err);
-      alert("결제에 실패했습니다. 다시 시도해주세요.");
-    } finally {
-      setLoading(false);
+    if (insertError) {
+      console.error("❌ 수강 내역 저장 실패:", insertError);
     }
-  };
+
+// 📌 수강료 결제 정보
+  const reward_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const created_at = new Date().toISOString();
+
+  // ✅ 기존 fee_records 조회
+  const { data: existingFeeRecord, error: fetchError } = await supabase
+    .from("fee_records")
+    .select("id")
+    .eq("wallet_address", account.address.toLowerCase())
+    .single();
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("❌ 수강료 조회 실패:", fetchError);
+  }
+
+  if (existingFeeRecord) {
+    // ✅ 기존 데이터 있으면 업데이트
+    const { error: updateError } = await supabase
+      .from("fee_records")
+      .update({
+        fee_tuition: selected.price,
+        source: `수강신청: ${selected.name}`,
+        reward_date,
+        created_at,
+      })
+      .eq("id", existingFeeRecord.id);
+
+    if (updateError) {
+      console.error("❌ 수강료 업데이트 실패:", updateError);
+    } else {
+      console.log("✅ 수강료 업데이트 완료:", selected.price);
+    }
+  } else {
+    // ✅ 없으면 새로 삽입
+    const { error: feeError } = await supabase.from("fee_records").insert({
+      ref_code: user.ref_code,
+      name: user.name,
+      wallet_address: account.address.toLowerCase(),
+      fee_commission: 0,
+      fee_tuition: selected.price,
+      source: `수강신청: ${selected.name}`,
+      reward_date,
+      created_at,
+    });
+
+    if (feeError) {
+      console.error("❌ 수강료 기록 실패:", feeError);
+    } else {
+      console.log("✅ 수강료 기록 완료:", selected.price);
+    }
+  }
+
+  if (onPurchased) onPurchased();
+} catch (err) {
+  console.error("❌ 결제 실패:", err);
+  alert("결제에 실패했습니다. 다시 시도해주세요.");
+} finally {
+  setLoading(false);
+}
+};
+
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

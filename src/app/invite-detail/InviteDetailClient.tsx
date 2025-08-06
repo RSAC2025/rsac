@@ -9,11 +9,6 @@ export default function InviteDetailClient() {
   const router = useRouter();
   const refCode = searchParams.get("code");
 
-  const [summary, setSummary] = useState({
-    nft300: 0,
-    nft3000: 0,
-    nft10000: 0,
-  });
   const [history, setHistory] = useState<{ date: string; amount: number }[]>([]);
   const [name, setName] = useState("");
 
@@ -29,20 +24,6 @@ export default function InviteDetailClient() {
         .maybeSingle();
 
       if (user?.name) setName(user.name);
-
-      // NFT 보유 수량 조회
-      const { data: nfts } = await supabase
-        .from("nfts")
-        .select("nft300, nft3000, nft10000")
-        .eq("ref_code", refCode);
-
-      const count = { nft300: 0, nft3000: 0, nft10000: 0 };
-      nfts?.forEach((row) => {
-        count.nft300 += row.nft300 || 0;
-        count.nft3000 += row.nft3000 || 0;
-        count.nft10000 += row.nft10000 || 0;
-      });
-      setSummary(count);
 
       // 리워드 내역 조회
       const { data: historyData, error: historyError } = await supabase
@@ -71,24 +52,6 @@ export default function InviteDetailClient() {
     fetchData();
   }, [refCode]);
 
-  const nftAssets = [
-    {
-      label: "SNOWBOT 300",
-      image: "/snow100.png",
-      qty: summary.nft300,
-    },
-    {
-      label: "SNOWBOT 3000",
-      image: "/snowbot3000.png",
-      qty: summary.nft3000,
-    },
-    {
-      label: "SNOWBOT 10000",
-      image: "/snowbot10000.png",
-      qty: summary.nft10000,
-    },
-  ];
-
   return (
     <main className="min-h-screen bg-[#f5f7fa] pb-24">
       {/* 상단바 */}
@@ -102,30 +65,8 @@ export default function InviteDetailClient() {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-2">
-        {/* NFT 자산현황 */}
-        <h2 className="font-semibold text-sm text-gray-700 mb-2 pl-2">
-          {name ? `${name} 님의 NFT 자산현황` : "NFT 자산현황"}
-        </h2>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col space-y-3">
-          {nftAssets.map((nft, idx) => (
-            <div key={idx} className="flex items-center">
-              <img
-                src={nft.image}
-                alt={nft.label}
-                className="w-14 h-14 rounded mr-4"
-              />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">{nft.label}</p>
-                <p className="text-xs text-gray-500">
-                  보유 수량: <span className="text-blue-600 font-medium">{nft.qty}개</span>
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* 리워드 내역 */}
-        <h2 className="font-semibold text-sm text-gray-700 mt-6 mb-2 pl-2">
+        <h2 className="font-semibold text-sm text-gray-700 mb-2 pl-2">
           {name ? `${name} 님 데일리 리워드 내역` : "데일리 리워드 내역"}
         </h2>
         <div className="bg-white rounded-xl shadow p-4">

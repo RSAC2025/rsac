@@ -14,7 +14,6 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-semibold mb-4">📊 관리자 대시보드</h2>
           <ul className="list-disc pl-6 text-gray-700 space-y-2">
             <li>총 유저 수</li>
-            <li>총 보유 NFT 수</li>
             <li>누적 리워드 지급액</li>
             <li>대기 중인 출금 요청 수</li>
           </ul>

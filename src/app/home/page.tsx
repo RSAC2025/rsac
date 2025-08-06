@@ -27,19 +27,15 @@ export default function HomePage() {
 
   const [usdtBalance, setUsdtBalance] = useState("조회 중...");
   const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
   const [okxUid, setOkxUid] = useState("");
   const [uidSaved, setUidSaved] = useState(false);
   const [investReward, setInvestReward] = useState(0);
   const [referralReward, setReferralReward] = useState(0);
-  const [selectedPass, setSelectedPass] = useState<{
-    name: string;
-    period: string;
-    price: number;
-    image: string;
-  } | null>(null);
-  const [enrolledTitle, setEnrolledTitle] = useState<string>("불러오는 중...");
-  const [enrolledUntil, setEnrolledUntil] = useState<string | null>(null); // ✅ 추가
+  const [selectedPass, setSelectedPass] = useState<any>(null);
+
+  const [enrolledTitle, setEnrolledTitle] = useState<string | null>(null);
+  const [enrolledUntil, setEnrolledUntil] = useState<string | null>(null);
+  const [checkedEnrollments, setCheckedEnrollments] = useState(false);
   const [showEnrollAlert, setShowEnrollAlert] = useState(false);
 
   const usdtContract = useMemo(() => getContract({ client, chain: polygon, address: USDT_ADDRESS }), []);
@@ -58,6 +54,12 @@ export default function HomePage() {
       fetchUserInfo();
     }
   }, [account]);
+  // ✅ 항상 페이지 진입 시 최신 수강 상태 확인
+useEffect(() => {
+  if (!account?.address) return;
+  fetchUserInfo();
+}, [account?.address]);
+
 
   const fetchUSDTBalance = async () => {
     if (!account?.address) return;
@@ -75,7 +77,7 @@ export default function HomePage() {
     if (!account?.address) return;
     const today = getKSTDateString();
     const { data: user } = await supabase.from("users").select("ref_code").eq("wallet_address", address).maybeSingle();
-    const refCode = user?.ref_code || "RS10100";
+    const refCode = user?.ref_code || "RS10001";
 
     const { data } = await supabase
       .from("reward_transfers")
@@ -95,65 +97,69 @@ export default function HomePage() {
   };
 
   const fetchUserInfo = async () => {
-    const { data: user } = await supabase.from("users").select("name, nickname, okx_uid, ref_code").eq("wallet_address", address).maybeSingle();
+    const { data: user } = await supabase
+      .from("users")
+      .select("name, okx_uid, ref_code")
+      .eq("wallet_address", address)
+      .maybeSingle();
 
     if (user) {
       setName(user.name || "");
-      setNickname(user.nickname || "");
       setOkxUid(user.okx_uid || "");
-      if (user.okx_uid) setUidSaved(true);
+      setUidSaved(!!user.okx_uid); // ✅ 있으면 true, 없으면 false
 
-      // ✅ enrollments에서 결제된 패스권 확인
-const { data: enrollments } = await supabase
-  .from("enrollments")
-  .select("pass_type, pass_expired_at") // ✅ end_date 추가
-  .eq("ref_code", user.ref_code)
-  .eq("memo", "결제 완료")
-  .order("created_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
+      const { data: enrollments } = await supabase
+        .from("enrollments")
+        .select("pass_type, pass_expired_at")
+        .eq("ref_code", user.ref_code)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-if (enrollments?.pass_type) {
-  setEnrolledTitle(enrollments.pass_type);
-  const until = enrollments.pass_expired_at?.toString().split("T")[0]; // ✅ 필드명 수정
-  setEnrolledUntil(until); // ✅ 종료일 저장
-    // ✅ 수강 카드 보여주기 조건
-
-} else {
-  setEnrolledTitle("");
-  setEnrolledUntil(null);
-    // ✅ 수강 카드 숨김 처리
-
-}
-
+      if (enrollments?.pass_type) {
+        setEnrolledTitle(enrollments.pass_type);
+        const until = enrollments.pass_expired_at?.toString().split("T")[0];
+        setEnrolledUntil(until);
+      } else {
+        setEnrolledTitle(null);
+        setEnrolledUntil(null);
+      }
     }
+
+    setCheckedEnrollments(true);
   };
 
   const handleSaveUID = async () => {
     if (!okxUid || !address) return;
+
     await supabase.from("users").update({ okx_uid: okxUid }).eq("wallet_address", address);
-    setUidSaved(true);
+
+    const { error } = await supabase.from("fee_records").update({ okx_uid: okxUid }).eq("wallet_address", address);
+    if (error) {
+      console.error("❌ fee_records okx_uid 업데이트 실패:", error.message);
+    } else {
+      console.log("✅ fee_records okx_uid 업데이트 완료");
+      setUidSaved(true);
+    }
   };
 
   const handlePassPurchased = async () => {
     if (!selectedPass || !address) return;
-    const title = selectedPass.name;
-    setEnrolledTitle(title); // 프론트 상태 반영
-    // ❗ 결제 완료 후 enrollments 테이블에 등록되므로 따로 저장 안함
+    setEnrolledTitle(selectedPass.name);
+    // 실제 insert는 PassPurchaseModal에서 처리됨
   };
 
   return (
     <main className="w-full min-h-screen bg-[#f5f7fa] pt-0 pb-20">
       <TopBar icon={<Home size={20} className="text-gray-700" />} title="홈" />
 
-        {/* ✅ 수강중 안내 박스 */}
-  {enrolledTitle && enrolledUntil && (
-    <div className="max-w-[500px] mx-auto px-3 pt-2">
-      <div className="bg-purple-100 text-purple-800 text-sm font-semibold px-4 py-2 rounded-xl text-center shadow">
-        {enrolledTitle}를 수강중이에요! (~ {enrolledUntil})
-      </div>
-    </div>
-  )}
+      {enrolledTitle && enrolledUntil && (
+        <div className="max-w-[500px] mx-auto px-3 pt-2">
+          <div className="bg-purple-100 text-purple-800 text-sm font-semibold px-4 py-2 rounded-xl text-center shadow">
+            {enrolledTitle}를 수강중이에요! (~ {enrolledUntil})
+          </div>
+        </div>
+      )}
 
       <div className="px-3 pt-2">
         <img src="/okx.png" alt="광고 배너" className="w-full rounded-xl shadow mb-2" />
@@ -199,24 +205,29 @@ if (enrollments?.pass_type) {
           </div>
         </section>
 
-<section
-  className={`bg-white rounded-xl shadow px-4 py-3 ${enrolledTitle ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
-  onClick={() => {
-    if (enrolledTitle) {
-      router.push("/chart");
-    } else {
-      setShowEnrollAlert(true); // ✅ 모달 열기
-    }
-  }}
->
-  <div className="flex items-center space-x-2">
-    <img src="/chart.png" alt="차트" className="w-10 h-10" />
-    <span className={`text-sm font-semibold ${enrolledTitle ? "text-blue-600" : "text-gray-400"}`}>
-      트레이딩 뷰 차트 받아보기
-    </span>
-  </div>
-</section>
-
+        <section
+          className={`bg-white rounded-xl shadow px-4 py-3 ${
+            enrolledTitle ? "cursor-pointer" : "opacity-50 cursor-not-allowed"
+          }`}
+          onClick={() => {
+            if (enrolledTitle) {
+              router.push("/chart");
+            } else {
+              setShowEnrollAlert(true);
+            }
+          }}
+        >
+          <div className="flex items-center space-x-2">
+            <img src="/chart.png" alt="차트" className="w-10 h-10" />
+            <span
+              className={`text-sm font-semibold ${
+                enrolledTitle ? "text-blue-600" : "text-gray-400"
+              }`}
+            >
+              트레이딩 뷰 차트 받아보기
+            </span>
+          </div>
+        </section>
 
         <section className="bg-white rounded-xl shadow overflow-hidden">
           <div className="bg-blue-600 text-white text-md font-semibold px-4 py-1">나의 자산</div>
@@ -245,28 +256,32 @@ if (enrollments?.pass_type) {
           </div>
         </section>
 
-        {/* PASS 구입 섹션 */}
+        {/* 패스권 구입 섹션 */}
         <section className="bg-white rounded-xl shadow px-4 py-3">
           <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
-          {[{
-            title: "300 PASS",
-            price: "1 USDT / 1개월",
-            image: "/pass-300.png"
-          }, {
-            title: "1800 PASS",
-            price: "1800 USDT / 6개월",
-            image: "/pass-1800.png"
-          }, {
-            title: "3600 PASS",
-            price: "3600 USDT / 12개월",
-            image: "/pass-3600.png"
-          }, {
-            title: "VIP PASS",
-            price: "10000 USDT / 무제한",
-            image: "/pass-vip.png"
-          }].map((pass, idx) => {
+          {[
+            {
+              title: "300 PASS",
+              price: "1 USDT / 1개월",
+              image: "/pass-300.png",
+            },
+            {
+              title: "1800 PASS",
+              price: "1800 USDT / 6개월",
+              image: "/pass-1800.png",
+            },
+            {
+              title: "3600 PASS",
+              price: "3600 USDT / 12개월",
+              image: "/pass-3600.png",
+            },
+            {
+              title: "VIP PASS",
+              price: "10000 USDT / 무제한",
+              image: "/pass-vip.png",
+            },
+          ].map((pass, idx) => {
             const isEnrolled = enrolledTitle === pass.title;
-            const isLoading = enrolledTitle === "불러오는 중...";
 
             return (
               <div key={idx} className="flex items-center justify-between py-2">
@@ -278,18 +293,30 @@ if (enrollments?.pass_type) {
                   </div>
                 </div>
 
-                {isEnrolled ? (
-                  <button disabled className="text-[12px] font-semibold text-gray-500 bg-gray-200 px-3 py-1 rounded-full">수강중</button>
-                ) : isLoading ? (
-                  <button disabled className="text-[12px] font-semibold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">로딩중...</button>
+                {!checkedEnrollments ? (
+                  <button
+                    disabled
+                    className="text-[12px] font-semibold text-gray-400 bg-gray-100 px-3 py-1 rounded-full"
+                  >
+                    로딩중...
+                  </button>
+                ) : isEnrolled ? (
+                  <button
+                    disabled
+                    className="text-[12px] font-semibold text-gray-500 bg-gray-200 px-3 py-1 rounded-full"
+                  >
+                    수강중
+                  </button>
                 ) : (
                   <button
-                    onClick={() => setSelectedPass({
-                      name: pass.title,
-                      period: pass.price.split("/")[1].trim(),
-                      price: parseFloat(pass.price.replace("USDT", "").split("/")[0].trim()),
-                      image: pass.image,
-                    })}
+                    onClick={() =>
+                      setSelectedPass({
+                        name: pass.title,
+                        period: pass.price.split("/")[1].trim(),
+                        price: parseFloat(pass.price.replace("USDT", "").split("/")[0].trim()),
+                        image: pass.image,
+                      })
+                    }
                     className="text-[12px] font-semibold text-white bg-blue-500 px-3 py-1 rounded-full hover:bg-blue-600"
                   >
                     수강신청
@@ -311,22 +338,22 @@ if (enrollments?.pass_type) {
       )}
 
       <BottomNav />
-      {showEnrollAlert && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-    <div className="bg-white rounded-xl p-5 w-[90%] max-w-xs text-center shadow-xl relative">
-      <button
-        className="absolute top-2 right-2 text-gray-500"
-        onClick={() => setShowEnrollAlert(false)}
-      >
-        ✕
-      </button>
-      <img src="/alert.png" alt="알림" className="mx-auto w-12 h-12 mb-3" />
-      <p className="text-sm font-semibold text-red-600">수강생만 이용 가능한 서비스입니다.</p>
-      <p className="text-sm text-gray-700 mt-1">수강신청을 완료해주세요.</p>
-    </div>
-  </div>
-)}
 
+      {showEnrollAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl p-5 w-[90%] max-w-xs text-center shadow-xl relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500"
+              onClick={() => setShowEnrollAlert(false)}
+            >
+              ✕
+            </button>
+            <img src="/alert.png" alt="알림" className="mx-auto w-12 h-12 mb-3" />
+            <p className="text-sm font-semibold text-red-600">수강생만 이용 가능한 서비스입니다.</p>
+            <p className="text-sm text-gray-700 mt-1">수강신청을 완료해주세요.</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

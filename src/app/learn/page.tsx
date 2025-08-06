@@ -37,17 +37,6 @@ export default function LearnPage() {
     <div className="min-h-screen bg-[#f5f7fa] pb-24">
       <TopBar title="교육" />
 
-      {/* ✅ PASS 수강중 안내 */}
-      <div className="px-4 mt-4">
-        <div className="bg-blue-100 text-blue-800 text-sm font-medium rounded-full px-4 py-2 flex items-center space-x-2">
-          <Megaphone size={16} className="text-blue-600" />
-          <span>
-            <span className="font-bold text-blue-600">300 PASS</span>
-            <span className="ml-1">를 수강중이에요! (2025.07.01~2025.07.07)</span>
-          </span>
-        </div>
-      </div>
-
       {/* ✅ 학습 콘텐츠 */}
       <div className="px-4 mt-6 space-y-6">
         {/* 🔹 크립토 기초 */}

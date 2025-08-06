@@ -5,40 +5,32 @@ import { useActiveAccount } from "thirdweb/react";
 import { supabase } from "@/lib/supabaseClient";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import { ClipboardCopy } from "lucide-react";
 
-interface UserNode {
-  name: string;
+interface User {
   ref_code: string;
-  grade: string;
+  ref_by: string | null;
+  name: string;
   created_at: string;
-  children?: UserNode[];
 }
 
-const GRADE_LABELS: Record<string, string> = {
-  v1: "일반회원",
-  v2: "실버회원",
-  v3: "골드회원",
-  v4: "초보강사",
-  v5: "선임강사",
-  v6: "센터장",
-  v7: "마스터센터장",
-  v8: "골드센터장",
-  v9: "회사",
-};
+interface UserNode extends User {
+  children: UserNode[];
+}
 
 export default function InvitePage() {
   const account = useActiveAccount();
   const [refCode, setRefCode] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
-  const [treeData, setTreeData] = useState<UserNode[]>([]);
+  const [tree, setTree] = useState<UserNode | null>(null);
 
-  // ✅ 내 초대코드 + 초대링크
+  // ✅ 초대코드 로드
   useEffect(() => {
     const loadRefCode = async () => {
       if (!account?.address) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("users")
         .select("ref_code")
         .eq("wallet_address", account.address.toLowerCase())
@@ -46,131 +38,117 @@ export default function InvitePage() {
 
       if (data?.ref_code) {
         setRefCode(data.ref_code);
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        setInviteLink(`${origin}/invite/${data.ref_code}`);
+        setInviteLink(`http://localhost:3000/invite/${data.ref_code}`);
       }
     };
     loadRefCode();
   }, [account]);
 
-  // ✅ 조직도 불러오기 및 트리 구성
+  // ✅ 전체 유저 로드 + 트리 빌드
   useEffect(() => {
-    const fetchHierarchy = async () => {
+    const fetchAndBuildTree = async () => {
       if (!refCode) return;
 
-      const { data: allUsers } = await supabase
+      const { data: users } = await supabase
         .from("users")
-        .select("ref_code, ref_by, name, grade, joined_at");
+        .select("ref_code, ref_by, name, created_at");
 
-      if (!allUsers) return;
-
-      const map = new Map<string, UserNode>();
-      allUsers.forEach(u => {
-        map.set(u.ref_code, {
-          name: u.name,
-          ref_code: u.ref_code,
-          grade: u.grade,
-          created_at: u.joined_at,
-          children: [],
-        });
-      });
-
-      allUsers.forEach(u => {
-        const node = map.get(u.ref_code)!;
-        if (u.ref_by && map.has(u.ref_by)) {
-          map.get(u.ref_by)!.children!.push(node);
-        }
-      });
-
-      const myNode = map.get(refCode);
-      if (myNode) {
-        setTreeData([myNode]);
+      if (users) {
+        const treeData = buildUserTree(users, refCode);
+        setTree(treeData);
       }
     };
-
-    fetchHierarchy();
+    fetchAndBuildTree();
   }, [refCode]);
 
-  // ✅ 조직도 텍스트 출력 함수 (초대코드 제거)
-  function renderTreeTable(nodes: UserNode[], indent = ""): string {
-    return nodes
-      .map((node) => {
-        const indentPrefix = indent + (indent ? "└ " : "");
-        const nameAndGrade = `${indentPrefix}${node.name} [${GRADE_LABELS[node.grade] || node.grade}]`;
+  // ✅ 트리 생성 함수 (무한 재귀 방지 포함)
+  function buildUserTree(
+    users: User[],
+    rootRefCode: string,
+    visited = new Set<string>()
+  ): UserNode {
+    if (visited.has(rootRefCode)) {
+      return {
+        ref_code: rootRefCode,
+        ref_by: null,
+        name: "(순환 참조)",
+        created_at: "",
+        children: [],
+      };
+    }
 
-        const nameField = nameAndGrade.padEnd(38, " "); // 넉넉히 조절
-        const dateField = new Date(new Date(node.created_at).getTime() + 9 * 3600000)
-          .toISOString()
-          .slice(0, 10);
+    visited.add(rootRefCode);
 
-        return `${nameField}${dateField}` +
-          (node.children && node.children.length > 0
-            ? "\n" + renderTreeTable(node.children, indent + "  ")
-            : "");
-      })
-      .join("\n");
+    const rootUser = users.find((u) => u.ref_code === rootRefCode);
+    if (!rootUser) {
+      return {
+        ref_code: rootRefCode,
+        ref_by: null,
+        name: "(사용자 없음)",
+        created_at: "",
+        children: [],
+      };
+    }
+
+    const children = users
+      .filter((u) => u.ref_by === rootRefCode)
+      .map((child) => buildUserTree(users, child.ref_code, new Set(visited)));
+
+    return { ...rootUser, children };
   }
 
-  // ✅ 초대링크 복사
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      alert("복사 실패: 수동으로 복사해주세요.");
-    }
-  };
+  // ✅ 재귀적으로 레그 표시
+function renderTree(
+  node: UserNode,
+  prefix: string = "",
+  isLast: boolean = true
+): JSX.Element {
+  const hasChildren = node.children.length > 0;
+  const branchSymbol = prefix ? (isLast ? "└─ " : "├─ ") : "";
+  const childPrefix = prefix + (isLast ? "   " : "│  ");
 
   return (
-    <>
-      <TopBar title="친구초대" showBack />
-      <main className="min-h-screen bg-[#f5f7fa] pb-32 w-full">
-        <div className="px-2 pt-4 max-w-md mx-auto space-y-4">
-          {/* ✅ 나의 초대 코드 */}
-          <section className="bg-white rounded-xl shadow overflow-hidden">
-            <div className="bg-blue-600 text-white px-3 py-1 font-semibold text-base">
-              나의 초대 코드
-            </div>
-            <div className="px-3 py-4 space-y-1 text-xs text-black">
-              <div className="text-left">
-                <span className="font-semibold">초대코드 :</span> {refCode || "불러오는 중..."}
-              </div>
-              {inviteLink && (
-                <>
-                  <div className="text-left break-all mt-6">
-                    <span className="font-semibold">초대링크 :</span> {inviteLink}
-                  </div>
-                  <button
-                    onClick={handleCopy}
-                    className="w-full bg-blue-100 hover:bg-blue-200 text-blue-600 py-2 rounded-lg text-sm font-semibold mt-4"
-                  >
-                    {copied ? "✅ 복사됨" : "초대 링크 복사하기"}
-                  </button>
-                </>
-              )}
-            </div>
-          </section>
+    <div key={node.ref_code}>
+      <div className="font-mono ml-2 text-sm">
+        {prefix}
+        {branchSymbol}
+        {node.name} ({node.ref_code})
+      </div>
+      {node.children.map((child, index) =>
+        renderTree(child, childPrefix, index === node.children.length - 1)
+      )}
+    </div>
+  );
+}
 
-          {/* ✅ 조직도 출력 */}
-          <section className="bg-white rounded-xl shadow overflow-hidden">
-            <div className="bg-blue-600 text-white px-3 py-1 font-semibold text-base">
-              초대 조직도
-            </div>
-            <div className="px-3 py-4">
-              {treeData.length > 0 ? (
-                <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
-이름 / 등급                                 가입일
-{`\n${renderTreeTable(treeData)}`}
-                </pre>
-              ) : (
-                <p className="text-center text-xs text-gray-400 py-4">초대한 친구가 없습니다.</p>
-              )}
-            </div>
-          </section>
+
+  return (
+    <div className="min-h-screen bg-[#e5f3f7]">
+      <TopBar title="초대하기" />
+      <div className="p-4 space-y-6">
+        <div className="bg-white rounded-xl shadow p-4 border-2 border-blue-600">
+          <div className="text-blue-600 font-bold mb-2">나의 초대 코드</div>
+          <div className="text-sm">초대코드 : {refCode}</div>
+          <div className="text-sm">초대링크 : {inviteLink}</div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(inviteLink);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="mt-2 w-full bg-blue-100 text-blue-700 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2"
+          >
+            <ClipboardCopy size={16} />
+            {copied ? "복사됨!" : "초대 링크 복사하기"}
+          </button>
         </div>
-        <BottomNav />
-      </main>
-    </>
+
+        <div className="bg-white rounded-xl shadow p-4 border-2 border-blue-600">
+          <div className="text-blue-600 font-bold mb-2">나의 초대 친구</div>
+          {tree ? renderTree(tree) : <p className="text-sm">불러오는 중...</p>}
+        </div>
+      </div>
+      <BottomNav />
+    </div>
   );
 }

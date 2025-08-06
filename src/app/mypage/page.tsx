@@ -13,17 +13,19 @@ export default function MyPage() {
   const router = useRouter();
 
   const [userData, setUserData] = useState<any>(null);
-  const [editingField, setEditingField] = useState<"name" | "phone" | null>(null);
+  const [editingField, setEditingField] = useState<"name" | "phone" | "center" | "okx" | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
+  const [centerInput, setCenterInput] = useState("");
+  const [okxInput, setOkxInput] = useState("");
 
   useEffect(() => {
     const fetchUserData = async () => {
       if (!account?.address) return;
 
-      const { data: user, error } = await supabase
+      const { data: user } = await supabase
         .from("users")
-        .select("name, phone, email, created_at, ref_by, joined_at")
+        .select("name, phone, email, created_at, ref_by, joined_at, center_id, okx_uid")
         .eq("wallet_address", account.address.toLowerCase())
         .maybeSingle();
 
@@ -42,6 +44,8 @@ export default function MyPage() {
       setUserData({
         ...user,
         ref_by_name: refName,
+        center_id: user.center_id || "",
+        okx_uid: user.okx_uid || "",
       });
     };
 
@@ -185,6 +189,94 @@ export default function MyPage() {
               <div className="flex justify-between px-4 py-3">
                 <span>추천인</span>
                 <span className="text-gray-800">{userData?.ref_by_name || "-"}</span>
+              </div>
+
+              {/* 소속 센터 */}
+              <div className="flex justify-between px-4 py-3 items-center">
+                <span>소속 센터</span>
+                {editingField === "center" ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={centerInput}
+                      onChange={(e) => setCenterInput(e.target.value)}
+                      className="text-sm border rounded px-2 py-1 w-28"
+                    />
+                    <button
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("users")
+                          .update({ center_id: centerInput })
+                          .eq("wallet_address", account.address.toLowerCase());
+
+                        if (!error) {
+                          setEditingField(null);
+                          setUserData({ ...userData, center_id: centerInput });
+                        }
+                      }}
+                      className="text-blue-500 text-sm"
+                    >
+                      저장
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-gray-800">
+                    {userData?.center_id || "-"}{" "}
+                    <span
+                      className="text-blue-500 cursor-pointer text-sm"
+                      onClick={() => {
+                        setEditingField("center");
+                        setCenterInput(userData?.center_id || "");
+                      }}
+                    >
+                      수정
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* OKX UID */}
+              <div className="flex justify-between px-4 py-3 items-center">
+                <span>OKX UID</span>
+                {editingField === "okx" ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={okxInput}
+                      onChange={(e) => setOkxInput(e.target.value)}
+                      className="text-sm border rounded px-2 py-1 w-28"
+                    />
+                    <button
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("users")
+                          .update({ okx_uid: okxInput })
+                          .eq("wallet_address", account.address.toLowerCase());
+
+                        if (!error) {
+                          setEditingField(null);
+                          setUserData({ ...userData, okx_uid: okxInput });
+                        }
+                      }}
+                      className="text-blue-500 text-sm"
+                    >
+                      저장
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-gray-800">
+                    {userData?.okx_uid || "-"}{" "}
+                    <span
+                      className="text-blue-500 cursor-pointer text-sm"
+                      onClick={() => {
+                        setEditingField("okx");
+                        setOkxInput(userData?.okx_uid || "");
+                      }}
+                    >
+                      수정
+                    </span>
+                  </span>
+                )}
               </div>
             </div>
           </section>
