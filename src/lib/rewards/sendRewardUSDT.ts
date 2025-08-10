@@ -3,9 +3,18 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getKSTISOString } from "@/lib/dateUtil";
 import { sendUSDT } from "@/lib/sendUSDT";
+import { privateKeyToAccount } from "thirdweb/wallets";
+import { client } from "@/lib/client";
 
 export async function sendRewardUSDT() {
   const today = getKSTISOString().slice(0, 10); // YYYY-MM-DD
+
+  const adminWallet = privateKeyToAccount({
+    client,
+    privateKey: process.env.ADMIN_PRIVATE_KEY!,
+  });
+
+  console.log("🚀 송금 지갑 주소:", adminWallet.address);
 
   const { data: targets, error: loadError } = await supabase
     .from("reward_transfers")
@@ -33,10 +42,13 @@ export async function sendRewardUSDT() {
       const tx = await sendUSDT(wallet_address, total_amount);
 
       if (!tx?.transactionHash) {
+        console.error("❗ 트랜잭션 응답:", tx);
         throw new Error("트랜잭션 해시 없음");
       }
 
-      await supabase
+      console.log(`📝 상태 업데이트 → ${id}, status: completed`);
+
+      const { error: updateError } = await supabase
         .from("reward_transfers")
         .update({
           status: "completed",
@@ -45,12 +57,18 @@ export async function sendRewardUSDT() {
         })
         .eq("id", id);
 
+      if (updateError) {
+        console.error(`⚠️ 상태 업데이트 실패 → ${id}`, updateError.message);
+      }
+
       console.log(`✅ 송금 성공 → ${wallet_address}, TX: ${tx.transactionHash}`);
       successCount++;
     } catch (err: any) {
       console.error(`❌ 송금 실패 → ${wallet_address}`, err?.message || err);
 
-      await supabase
+      console.log(`📝 상태 업데이트 → ${id}, status: failed`);
+
+      const { error: failUpdateError } = await supabase
         .from("reward_transfers")
         .update({
           status: "failed",
@@ -58,6 +76,10 @@ export async function sendRewardUSDT() {
           updated_at: getKSTISOString(),
         })
         .eq("id", id);
+
+      if (failUpdateError) {
+        console.error(`⚠️ 실패 상태 업데이트 오류 → ${id}`, failUpdateError.message);
+      }
 
       failCount++;
     }
@@ -70,4 +92,3 @@ export async function sendRewardUSDT() {
     failed: failCount,
   };
 }
-
