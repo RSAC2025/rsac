@@ -7,6 +7,8 @@ import { polygon } from "thirdweb/chains";
 import { client } from "@/lib/client";
 import { supabase } from "@/lib/supabaseClient";
 import { getKSTISOString } from "@/lib/dateUtil";
+import { X } from "lucide-react";
+
 
 // ✅ 성공 모달
 function PurchaseSuccessModal({ amount, onClose }: { amount: number; onClose: () => void }) {
@@ -218,8 +220,17 @@ const handlePurchase = async () => {
       )}
 
       <div className="fixed inset-0 z-40 flex items-end justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-        <div className="w-full max-w-[500px] bg-white rounded-t-3xl p-5">
-          <div className="text-center mb-2 text-lg font-bold">결제하기</div>
+<div className="w-full max-w-[500px] bg-white rounded-t-3xl p-5 relative">
+  {/* ▼ 우상단 닫기 버튼 */}
+  <button
+    onClick={onClose}
+    aria-label="닫기"
+    className="absolute top-3 right-3 p-2 rounded-lg hover:bg-gray-100 active:scale-95 transition"
+  >
+    <X size={20} />
+  </button>
+
+  <div className="text-center mb-2 text-lg font-bold">결제하기</div>
           <div className="text-sm text-gray-600 mb-1">주문정보</div>
 
           <div className="flex items-center space-x-3 p-3 border rounded-xl my-2">
