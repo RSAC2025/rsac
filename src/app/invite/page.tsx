@@ -123,10 +123,10 @@ function renderTree(
 
 
   return (
-    <div className="min-h-screen bg-[#e5f3f7]">
+    <div className="min-h-screen bg-[#f5f7fa]">
       <TopBar title="초대하기" />
       <div className="p-4 space-y-6">
-        <div className="bg-white rounded-xl shadow p-4 border-2 border-blue-600">
+        <div className="bg-white rounded-xl shadow p-4 border-none">
           <div className="text-blue-600 font-bold mb-2">나의 초대 코드</div>
           <div className="text-sm">초대코드 : {refCode}</div>
           <div className="text-sm">초대링크 : {inviteLink}</div>
@@ -143,7 +143,7 @@ function renderTree(
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-4 border-2 border-blue-600">
+        <div className="bg-white rounded-xl shadow p-4 border-none">
           <div className="text-blue-600 font-bold mb-2">나의 초대 친구</div>
           {tree ? renderTree(tree) : <p className="text-sm">불러오는 중...</p>}
         </div>
