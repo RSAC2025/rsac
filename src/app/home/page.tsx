@@ -29,6 +29,11 @@ export default function HomePage() {
   const [name, setName] = useState("");
   const [okxUid, setOkxUid] = useState("");
   const [uidSaved, setUidSaved] = useState(false);
+
+  // ▼ [ADD] BINGX UID 상태
+  const [bingxUid, setBingxUid] = useState("");
+  const [bingxSaved, setBingxSaved] = useState(false);
+
   const [investReward, setInvestReward] = useState(0);
   const [referralReward, setReferralReward] = useState(0);
   const [selectedPass, setSelectedPass] = useState<any>(null);
@@ -54,12 +59,12 @@ export default function HomePage() {
       fetchUserInfo();
     }
   }, [account]);
-  // ✅ 항상 페이지 진입 시 최신 수강 상태 확인
-useEffect(() => {
-  if (!account?.address) return;
-  fetchUserInfo();
-}, [account?.address]);
 
+  // ✅ 항상 페이지 진입 시 최신 수강 상태 확인
+  useEffect(() => {
+    if (!account?.address) return;
+    fetchUserInfo();
+  }, [account?.address]);
 
   const fetchUSDTBalance = async () => {
     if (!account?.address) return;
@@ -99,14 +104,19 @@ useEffect(() => {
   const fetchUserInfo = async () => {
     const { data: user } = await supabase
       .from("users")
-      .select("name, okx_uid, ref_code")
+      // ▼ [MOD] bingx_uid 함께 조회
+      .select("name, okx_uid, bingx_uid, ref_code")
       .eq("wallet_address", address)
       .maybeSingle();
 
     if (user) {
       setName(user.name || "");
       setOkxUid(user.okx_uid || "");
-      setUidSaved(!!user.okx_uid); // ✅ 있으면 true, 없으면 false
+      setUidSaved(!!user.okx_uid);
+
+      // ▼ [ADD] BINGX UID 세팅
+      setBingxUid(user.bingx_uid || "");
+      setBingxSaved(!!user.bingx_uid);
 
       const { data: enrollments } = await supabase
         .from("enrollments")
@@ -143,6 +153,28 @@ useEffect(() => {
     }
   };
 
+  // ▼ [ADD] BINGX UID 저장 핸들러
+  const handleSaveBingxUID = async () => {
+    if (!bingxUid || !address) return;
+
+    const { error: userErr } = await supabase
+      .from("users")
+      .update({ bingx_uid: bingxUid })
+      .eq("wallet_address", address);
+
+    const { error: feeErr } = await supabase
+      .from("fee_records")
+      .update({ bingx_uid: bingxUid })
+      .eq("wallet_address", address);
+
+    if (!userErr && !feeErr) {
+      setBingxSaved(true);
+      setTimeout(() => setBingxSaved(false), 1500);
+    } else {
+      console.error("❌ bingx_uid 업데이트 실패:", userErr || feeErr);
+    }
+  };
+
   const handlePassPurchased = async () => {
     if (!selectedPass || !address) return;
     setEnrolledTitle(selectedPass.name);
@@ -166,6 +198,7 @@ useEffect(() => {
       </div>
 
       <div className="max-w-[500px] mx-auto px-3 pt-2 space-y-2">
+        {/* OKX UID */}
         {!uidSaved ? (
           <section className="bg-white rounded-xl shadow px-4 pt-4 pb-4">
             <p className="text-sm font-semibold text-gray-700 mb-2">나의 OKX UID를 입력하세요</p>
@@ -191,6 +224,36 @@ useEffect(() => {
         ) : (
           <div className="bg-white rounded-xl shadow px-4 pt-4 pb-4 flex justify-between items-center">
             <span className="text-sm font-semibold text-gray-700">OKX UID : {okxUid}</span>
+            <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">저장 완료</div>
+          </div>
+        )}
+
+        {/* ▼ [ADD] BINGX UID */}
+        {!bingxSaved ? (
+          <section className="bg-white rounded-xl shadow px-4 pt-4 pb-4">
+            <p className="text-sm font-semibold text-gray-700 mb-2">나의 BINGX UID를 입력하세요</p>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="BINGX UID"
+                value={bingxUid}
+                onChange={(e) => setBingxUid(e.target.value)}
+                className="flex-1 py-2 px-3 border border-gray-300 rounded-md text-sm focus:outline-none"
+              />
+              <button
+                onClick={handleSaveBingxUID}
+                className="text-sm font-semibold bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+              >
+                저장
+              </button>
+            </div>
+            <p className="mt-3 text-[12px] text-center text-gray-500 bg-gray-100 rounded-full py-1">
+              BINGX UID를 입력하지 않으면 리워드를 받을 수 없어요
+            </p>
+          </section>
+        ) : (
+          <div className="bg-white rounded-xl shadow px-4 pt-4 pb-4 flex justify-between items-center">
+            <span className="text-sm font-semibold text-gray-700">BINGX UID : {bingxUid}</span>
             <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">저장 완료</div>
           </div>
         )}
@@ -260,26 +323,10 @@ useEffect(() => {
         <section className="bg-white rounded-xl shadow px-4 py-3">
           <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
           {[
-            {
-              title: "300 PASS",
-              price: "1 USDT / 1개월",
-              image: "/pass-300.png",
-            },
-            {
-              title: "1800 PASS",
-              price: "1800 USDT / 6개월",
-              image: "/pass-1800.png",
-            },
-            {
-              title: "3600 PASS",
-              price: "3600 USDT / 12개월",
-              image: "/pass-3600.png",
-            },
-            {
-              title: "VIP PASS",
-              price: "10000 USDT / 무제한",
-              image: "/pass-vip.png",
-            },
+            { title: "300 PASS",  price: "300 USDT / 1개월",    image: "/pass-300.png" },
+            { title: "1800 PASS", price: "1800 USDT / 6개월", image: "/pass-1800.png" },
+            { title: "3600 PASS", price: "3600 USDT / 12개월", image: "/pass-3600.png" },
+            { title: "VIP PASS",  price: "10000 USDT / 12개월", image: "/pass-vip.png" },
           ].map((pass, idx) => {
             const isEnrolled = enrolledTitle === pass.title;
 

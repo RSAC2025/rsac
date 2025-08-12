@@ -13,11 +13,14 @@ export default function MyPage() {
   const router = useRouter();
 
   const [userData, setUserData] = useState<any>(null);
-  const [editingField, setEditingField] = useState<"name" | "phone" | "center" | "okx" | null>(null);
+  const [editingField, setEditingField] = useState<
+    "name" | "phone" | "center" | "okx" | "bingx" | null
+  >(null);
   const [nameInput, setNameInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [centerInput, setCenterInput] = useState("");
   const [okxInput, setOkxInput] = useState("");
+  const [bingxInput, setBingxInput] = useState("");
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -25,7 +28,9 @@ export default function MyPage() {
 
       const { data: user } = await supabase
         .from("users")
-        .select("name, phone, email, created_at, ref_by, joined_at, center_id, okx_uid")
+        .select(
+          "name, phone, email, created_at, ref_by, joined_at, center_id, okx_uid, bingx_uid"
+        )
         .eq("wallet_address", account.address.toLowerCase())
         .maybeSingle();
 
@@ -46,6 +51,7 @@ export default function MyPage() {
         ref_by_name: refName,
         center_id: user.center_id || "",
         okx_uid: user.okx_uid || "",
+        bingx_uid: user.bingx_uid || "",
       });
     };
 
@@ -248,14 +254,25 @@ export default function MyPage() {
                     />
                     <button
                       onClick={async () => {
+                        const wallet = account.address.toLowerCase();
+                        const value = okxInput.trim();
+
+                        // users 반영
                         const { error } = await supabase
                           .from("users")
-                          .update({ okx_uid: okxInput })
-                          .eq("wallet_address", account.address.toLowerCase());
+                          .update({ okx_uid: value })
+                          .eq("wallet_address", wallet);
+
+                        // fee_records에도 동기화 (지갑주소 기준)
+                        await supabase
+                          .from("fee_records")
+                          .update({ okx_uid: value })
+                          .eq("wallet_address", wallet)
+                          .throwOnError();
 
                         if (!error) {
                           setEditingField(null);
-                          setUserData({ ...userData, okx_uid: okxInput });
+                          setUserData({ ...userData, okx_uid: value });
                         }
                       }}
                       className="text-blue-500 text-sm"
@@ -271,6 +288,61 @@ export default function MyPage() {
                       onClick={() => {
                         setEditingField("okx");
                         setOkxInput(userData?.okx_uid || "");
+                      }}
+                    >
+                      수정
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* BINGX UID */}
+              <div className="flex justify-between px-4 py-3 items-center">
+                <span>BINGX UID</span>
+                {editingField === "bingx" ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={bingxInput}
+                      onChange={(e) => setBingxInput(e.target.value)}
+                      className="text-sm border rounded px-2 py-1 w-28"
+                    />
+                    <button
+                      onClick={async () => {
+                        const wallet = account.address.toLowerCase();
+                        const value = bingxInput.trim();
+
+                        // users 반영
+                        const { error } = await supabase
+                          .from("users")
+                          .update({ bingx_uid: value })
+                          .eq("wallet_address", wallet);
+
+                        // fee_records에도 동기화 (지갑주소 기준)
+                        await supabase
+                          .from("fee_records")
+                          .update({ bingx_uid: value })
+                          .eq("wallet_address", wallet)
+                          .throwOnError();
+
+                        if (!error) {
+                          setEditingField(null);
+                          setUserData({ ...userData, bingx_uid: value });
+                        }
+                      }}
+                      className="text-blue-500 text-sm"
+                    >
+                      저장
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-gray-800">
+                    {userData?.bingx_uid || "-"}{" "}
+                    <span
+                      className="text-blue-500 cursor-pointer text-sm"
+                      onClick={() => {
+                        setEditingField("bingx");
+                        setBingxInput(userData?.bingx_uid || "");
                       }}
                     >
                       수정
