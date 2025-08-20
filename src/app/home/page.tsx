@@ -264,7 +264,7 @@ export default function HomePage() {
             <p className="text-xl font-bold">{(investReward + referralReward).toFixed(2)} USDT</p>
           </div>
           <div className="mt-2 mb-0 text-center bg-gray-200 rounded-full px-4 py-1 text-[13px] text-gray-700">
-            어제의 리워드가 매일 오후 3시 이전에 자동 입금돼요.
+            어제의 리워드가 매주 토요일 오후 6시 이전에 입금돼요.
           </div>
         </section>
 
