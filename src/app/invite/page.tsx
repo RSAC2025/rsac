@@ -38,7 +38,7 @@ export default function InvitePage() {
 
       if (data?.ref_code) {
         setRefCode(data.ref_code);
-        setInviteLink(`http://localhost:3000/invite/${data.ref_code}`);
+        setInviteLink(`http://www.rsac.co.kr/invite/${data.ref_code}`);
       }
     };
     loadRefCode();

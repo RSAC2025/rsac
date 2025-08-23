@@ -112,7 +112,7 @@ export default function ChartRegisterPage() {
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-600 font-bold">②</span>
-              <span>하단에 본인의 트레이딩뷰 ID를 입력합니다.</span>
+              <span>하단에 본인의 트레이딩뷰 ID를 입력합니다.여기에 트레이딩뷰ID는 T핸드폰번호로 수정해주세요.. (예 T01090050893) 수정은 아이디 설정란에 서 할 수 있습니다. </span>
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-600 font-bold">③</span>
