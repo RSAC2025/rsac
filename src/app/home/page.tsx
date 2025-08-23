@@ -260,11 +260,11 @@ export default function HomePage() {
 
         <section className="bg-white rounded-xl shadow px-4 pt-3 pb-0">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold">오늘의 리워드</h3>
+            <h3 className="text-base font-bold">이번주의 리워드</h3>
             <p className="text-xl font-bold">{(investReward + referralReward).toFixed(2)} USDT</p>
           </div>
           <div className="mt-2 mb-0 text-center bg-gray-200 rounded-full px-4 py-1 text-[13px] text-gray-700">
-            어제의 리워드가 매주 토요일 오후 6시 이전에 입금돼요.
+            이번주의 리워드가 매주 토요일 오후 6시 이전에 입금돼요.
           </div>
         </section>
 
