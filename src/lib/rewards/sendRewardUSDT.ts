@@ -20,7 +20,7 @@ export async function sendRewardUSDT() {
     .from("reward_transfers")
     .select("*")
     .eq("reward_date", today)
-    .eq("status", "pending");
+    .in("status", ["pending", "failed"]);
 
   if (loadError) {
     console.error("❌ 대상 조회 실패:", loadError.message);
