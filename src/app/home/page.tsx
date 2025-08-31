@@ -20,7 +20,8 @@ const USDT_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
 
 export default function HomePage() {
   const account = useActiveAccount();
-  const address = account?.address?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+  const address =
+    account?.address?.toLowerCase() || "0x0000000000000000000000000000000000000000";
   const router = useRouter();
   const session = useSession();
   const balanceCalled = useRef(false);
@@ -43,10 +44,16 @@ export default function HomePage() {
   const [checkedEnrollments, setCheckedEnrollments] = useState(false);
   const [showEnrollAlert, setShowEnrollAlert] = useState(false);
 
-  const usdtContract = useMemo(() => getContract({ client, chain: polygon, address: USDT_ADDRESS }), []);
+  const usdtContract = useMemo(
+    () => getContract({ client, chain: polygon, address: USDT_ADDRESS }),
+    []
+  );
 
   useEffect(() => {
-    if (!account?.address || account.address === "0x0000000000000000000000000000000000000000") {
+    if (
+      !account?.address ||
+      account.address === "0x0000000000000000000000000000000000000000"
+    ) {
       router.replace("/");
     }
   }, [account?.address]);
@@ -81,7 +88,11 @@ export default function HomePage() {
   const fetchTodayRewards = async () => {
     if (!account?.address) return;
     const today = getKSTDateString();
-    const { data: user } = await supabase.from("users").select("ref_code").eq("wallet_address", address).maybeSingle();
+    const { data: user } = await supabase
+      .from("users")
+      .select("ref_code")
+      .eq("wallet_address", address)
+      .maybeSingle();
     const refCode = user?.ref_code || "RS10001";
 
     const { data } = await supabase
@@ -98,7 +109,9 @@ export default function HomePage() {
 
     const [todayLog] = data;
     setInvestReward(Number(todayLog.reward_amount || 0));
-    setReferralReward(Number(todayLog.referral_amount || 0) + Number(todayLog.center_amount || 0));
+    setReferralReward(
+      Number(todayLog.referral_amount || 0) + Number(todayLog.center_amount || 0)
+    );
   };
 
   const fetchUserInfo = async () => {
@@ -144,7 +157,10 @@ export default function HomePage() {
 
     await supabase.from("users").update({ okx_uid: okxUid }).eq("wallet_address", address);
 
-    const { error } = await supabase.from("fee_records").update({ okx_uid: okxUid }).eq("wallet_address", address);
+    const { error } = await supabase
+      .from("fee_records")
+      .update({ okx_uid: okxUid })
+      .eq("wallet_address", address);
     if (error) {
       console.error("❌ fee_records okx_uid 업데이트 실패:", error.message);
     } else {
@@ -181,6 +197,23 @@ export default function HomePage() {
     // 실제 insert는 PassPurchaseModal에서 처리됨
   };
 
+  // ▼ [ADD] 만료 안내 문구 계산 (KST 기준)
+  const expiryMsg = useMemo(() => {
+    if (!enrolledUntil) return null;
+
+    // KST 00:00 기준 비교
+    const todayKst = getKSTDateString(); // "YYYY-MM-DD"
+    const startOfTodayKst = new Date(`${todayKst}T00:00:00+09:00`).getTime();
+    const expireKst = new Date(`${enrolledUntil}T00:00:00+09:00`).getTime();
+
+    const diffDays = Math.ceil((expireKst - startOfTodayKst) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 3) return "구독 만료 3일 전입니다.";
+    if (diffDays === 2) return "구독 만료 2일 전입니다";
+    if (diffDays === 1) return "구독 만료 1일 전입니다";
+    return null; // 그 외에는 기본 문구 사용
+  }, [enrolledUntil]);
+
   return (
     <main className="w-full min-h-screen bg-[#f5f7fa] pt-0 pb-20">
       <TopBar icon={<Home size={20} className="text-gray-700" />} title="홈" />
@@ -188,7 +221,7 @@ export default function HomePage() {
       {enrolledTitle && enrolledUntil && (
         <div className="max-w-[500px] mx-auto px-3 pt-2">
           <div className="bg-purple-100 text-purple-800 text-sm font-semibold px-4 py-2 rounded-xl text-center shadow">
-            {enrolledTitle}를 수강중이에요! (~ {enrolledUntil})
+            {expiryMsg ?? `${enrolledTitle}를 수강중이예요! (~ ${enrolledUntil})`}
           </div>
         </div>
       )}
@@ -261,9 +294,11 @@ export default function HomePage() {
         <section className="bg-white rounded-xl shadow px-4 pt-3 pb-0">
           <div className="flex justify-between items-center">
             <h3 className="text-base font-bold">이번주의 리워드</h3>
-            <p className="text-xl font-bold">{(investReward + referralReward).toFixed(2)} USDT</p>
+            <p className="text-xl font-bold">
+              {(investReward + referralReward).toFixed(2)} USDT
+            </p>
           </div>
-          <div className="mt-2 mb-0 text-center bg-gray-200 rounded-full px-4 py-1 text-[13px] text-gray-700">
+          <div className="mt-2 mb-0 text-center bg-gray-2 00 rounded-full px-4 py-1 text-[13px] text-gray-700">
             이번주의 리워드가 매주 토요일 오후 6시 이전에 입금돼요.
           </div>
         </section>
@@ -323,10 +358,10 @@ export default function HomePage() {
         <section className="bg-white rounded-xl shadow px-4 py-3">
           <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
           {[
-            { title: "300 PASS",  price: "300 USDT / 1개월",    image: "/pass-300.png" },
+            { title: "300 PASS", price: "1 USDT / 1개월", image: "/pass-300.png" },
             { title: "1800 PASS", price: "1800 USDT / 6개월", image: "/pass-1800.png" },
             { title: "3600 PASS", price: "3600 USDT / 12개월", image: "/pass-3600.png" },
-            { title: "VIP PASS",  price: "10000 USDT / 12개월", image: "/pass-vip.png" },
+            { title: "VIP PASS", price: "10000 USDT / 12개월", image: "/pass-vip.png" },
           ].map((pass, idx) => {
             const isEnrolled = enrolledTitle === pass.title;
 

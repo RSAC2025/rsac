@@ -79,7 +79,10 @@ useEffect(() => {
         <div>
           <section className="w-full mb-6">
             <div className="p-4">
-              <p className="text-[16px] font-bold text-left text-[#4d4e4f]">롤링스톤즈 100만원으로 10억만들기 솔루션
+<p className="text-[16px] font-bold text-left text-[#4d4e4f]">
+  코인선물 제대로 기초부터 가르치는 아카데미 <br />
+  100만원 소액으로 1억 만들기 프로젝트 !!! <br />
+  경제적 자립을 꿈꾸는 모든 분들을 환영합니다.
 </p>
               <h1 className="text-[16px] font-bold text-left text-[#4d4e4f]">ROLLING STONES</h1>
             </div>

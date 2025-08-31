@@ -5,86 +5,82 @@ import { getKSTISOString } from "@/lib/dateUtil";
 import { getRewardSetting } from "@/lib/rewards/getRewardSetting";
 
 export async function calculateFeeRewards() {
-  const today = getKSTISOString().slice(0, 10);
+  const nowIso = getKSTISOString();
 
-  // 1. 리워드 설정
+  // 1) 리워드 설정
   const settings = await getRewardSetting();
   if (!settings) return { success: false, message: "리워드 설정 불러오기 실패" };
 
-  // 2. 수수료 기록 조회
+  // 2) 전체 수수료 레코드 (날짜 필터 제거)
   const { data: fees, error: feeError } = await supabase
     .from("fee_records")
-    .select("*")
-    .eq("reward_date", today);
+    .select("ref_code, name, wallet_address, fee_commission, reward_date, ref_by, ref_by2");
 
-  if (feeError || !fees || fees.length === 0) {
-    return { success: false, message: "수수료 기록 없음" };
-  }
+  if (feeError) return { success: false, message: "수수료 로딩 실패", detail: feeError.message };
+  if (!fees?.length) return { success: false, message: "수수료 기록 없음" };
 
-  // 3. 유저정보 조회 (ref_code → name, wallet_address 매핑용)
-  const { data: users } = await supabase.from("users").select("ref_code, name, wallet_address");
-  const userMap = new Map(users?.map((u) => [u.ref_code, u]) || []);
+  // 3) 계산
+  const rows: any[] = [];
+  for (const f of fees) {
+    const base = Number(f.fee_commission) || 0;
+    if (base <= 0) continue;
 
-  const rewardInviteRows = [];
+    const rewardDate = f.reward_date; // ← 날짜는 각 행의 reward_date를 사용
 
-  for (const fee of fees) {
-    const {
-      ref_code,
-      fee_commission,
-      ref_by,
-      ref_by2,
-    } = fee;
-
-    // 🔹 본인
-    const selfUser = userMap.get(ref_code);
-    if (selfUser) {
-      rewardInviteRows.push({
-        ref_code,
-        name: selfUser.name,
-        wallet_address: selfUser.wallet_address,
-        reward_date: today,
-        created_at: getKSTISOString(),
-        amount: fee_commission * (settings.self_rate / 100),
+    // 본인
+    if (settings.self_rate) {
+      rows.push({
+        ref_code: f.ref_code,
+        name: f.name ?? null,
+        wallet_address: f.wallet_address ?? null,
+        reward_date: rewardDate,
+        created_at: nowIso,
+        amount: +(base * (settings.self_rate / 100)).toFixed(6),
         level: 0,
         memo: "수수료 본인 리워드",
       });
     }
 
-    // 🔹 초대1
-    const ref1User = ref_by ? userMap.get(ref_by) : null;
-    if (ref1User) {
-      rewardInviteRows.push({
-        ref_code: ref_by,
-        name: ref1User.name,
-        wallet_address: ref1User.wallet_address,
-        reward_date: today,
-        created_at: getKSTISOString(),
-        amount: fee_commission * (settings.ref1_rate / 100),
+    // 초대1
+    if (f.ref_by && settings.ref1_rate) {
+      rows.push({
+        ref_code: f.ref_by,
+        name: null,
+        wallet_address: null,
+        reward_date: rewardDate,
+        created_at: nowIso,
+        amount: +(base * (settings.ref1_rate / 100)).toFixed(6),
         level: 1,
         memo: "수수료 초대1 리워드",
       });
     }
 
-    // 🔹 초대2
-    const ref2User = ref_by2 ? userMap.get(ref_by2) : null;
-    if (ref2User) {
-      rewardInviteRows.push({
-        ref_code: ref_by2,
-        name: ref2User.name,
-        wallet_address: ref2User.wallet_address,
-        reward_date: today,
-        created_at: getKSTISOString(),
-        amount: fee_commission * (settings.ref2_rate / 100),
+    // 초대2
+    if (f.ref_by2 && settings.ref2_rate) {
+      rows.push({
+        ref_code: f.ref_by2,
+        name: null,
+        wallet_address: null,
+        reward_date: rewardDate,
+        created_at: nowIso,
+        amount: +(base * (settings.ref2_rate / 100)).toFixed(6),
         level: 2,
         memo: "수수료 초대2 리워드",
       });
     }
   }
 
-  // 4. 저장
-  if (rewardInviteRows.length > 0) {
-    await supabase.from("reward_invites").insert(rewardInviteRows);
+  if (!rows.length) return { success: false, message: "계산된 리워드 없음" };
+
+  // 4) 대량 저장 (1000개씩 분할)
+  const chunkSize = 1000;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await supabase.from("reward_invites").insert(chunk);
+    if (error) {
+      return { success: false, message: "리워드 저장 실패", detail: error.message, insertedUntil: i };
+    }
   }
 
-  return rewardInviteRows.length;
+  return { success: true, inserted: rows.length };
 }

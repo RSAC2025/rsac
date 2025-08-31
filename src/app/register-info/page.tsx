@@ -17,11 +17,12 @@ export default function RegisterInfoPage() {
   const [refBy, setRefBy] = useState("RS10000");
 
   const centers = [
-    { id: "c001", center_name: "써니월센터" },
+    { id: "c001", center_name: "그랜드원장" },
     { id: "c002", center_name: "선릉센터" },
-    { id: "c003", center_name: "웰투센터" },
+    { id: "c003", center_name: "써니월센터" },
     { id: "c004", center_name: "광주 SUN센터" },
-    { id: "c005", center_name: "센터미정" },
+    { id: "c005", center_name: "웰투센터" },
+    { id: "c006", center_name: "센터미정" },
   ];
 
   useEffect(() => {

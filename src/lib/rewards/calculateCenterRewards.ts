@@ -5,110 +5,113 @@ import { getKSTISOString } from "@/lib/dateUtil";
 import { getRewardSetting } from "@/lib/rewards/getRewardSetting";
 
 export async function calculateCenterRewards() {
-  const today = getKSTISOString().slice(0, 10);
+  const nowIso = getKSTISOString();
 
+  // 1) 리워드 설정
   const settings = await getRewardSetting();
   if (!settings) return { success: false, message: "리워드 설정 불러오기 실패" };
 
-  // ✅ 수수료 내역
-  const { data: fees } = await supabase
+  // 2) 수수료 전체 로딩 (날짜 필터 제거)
+  const { data: fees, error: feeErr } = await supabase
     .from("fee_records")
-    .select("ref_code, fee_commission, fee_tuition, center_code")
-    .eq("reward_date", today);
-  if (!fees) return { success: false, message: "수수료 없음" };
+    .select("ref_code, fee_commission, fee_tuition, center_code, reward_date");
+  if (feeErr) return { success: false, message: "수수료 로딩 실패", detail: feeErr.message };
+  if (!fees?.length) return { success: false, message: "수수료 없음" };
 
-  // ✅ centers 테이블 로딩
-  const { data: centers } = await supabase
+  // 3) 센터 로딩
+  const { data: centers, error: centerErr } = await supabase
     .from("centers")
     .select("id, name, ref_code, wallet_address, parent_master_center_id, parent_grand_center_id");
-  if (!centers) return { success: false, message: "센터 정보 없음" };
+  if (centerErr) return { success: false, message: "센터 정보 로딩 실패", detail: centerErr.message };
+  if (!centers?.length) return { success: false, message: "센터 정보 없음" };
 
   const centerMap = new Map(centers.map((c) => [c.id, c]));
   const centerByRefCode = new Map(centers.map((c) => [c.ref_code, c]));
 
-  // ✅ 누적 리워드
+  // 4) 날짜별/리더별 누적 구조: key = `${leaderRef}|${reward_date}`
   const rewardMap = new Map<
     string,
     {
+      ref_code: string;           // 리더 ref_code
+      reward_date: string;        // fee_records.reward_date
       center_id: string;
-      name: string;
-      wallet_address: string;
+      name: string | null;
+      wallet_address: string | null;
       amount_fee: number;
       amount_tuition: number;
     }
   >();
 
-  for (const fee of fees) {
-    const center = centerMap.get(fee.center_code);
+  for (const f of fees) {
+    const baseFee  = Number(f.fee_commission) || 0;
+    const baseTu   = Number(f.fee_tuition) || 0;
+    const rdate    = f.reward_date as string;
+    if ((!baseFee && !baseTu) || !f.center_code || !rdate) continue;
+
+    const center = centerMap.get(f.center_code);
     if (!center) continue;
 
-    const centerLeaders = [
-      {
-        ref_code: center.ref_code,
-        rate_fee: settings.center_rate,
-        rate_tuition: settings.tuition_center_rate,
-      },
+    // 센터/마스터/그랜드 레벨 정의
+    const leaders: Array<{ ref_code: string; rate_fee: number; rate_tuition: number }> = [
+      { ref_code: center.ref_code, rate_fee: settings.center_rate || 0, rate_tuition: settings.tuition_center_rate || 0 },
     ];
 
     const master = centerMap.get(center.parent_master_center_id || "");
-    if (master) {
-      centerLeaders.push({
-        ref_code: master.ref_code,
-        rate_fee: settings.master_center_rate,
-        rate_tuition: 0,
-      });
-    }
+    if (master) leaders.push({ ref_code: master.ref_code, rate_fee: settings.master_center_rate || 0, rate_tuition: 0 });
 
     const grand = centerMap.get(center.parent_grand_center_id || "");
-    if (grand) {
-      centerLeaders.push({
-        ref_code: grand.ref_code,
-        rate_fee: settings.grand_center_rate,
-        rate_tuition: 0,
-      });
-    }
+    if (grand) leaders.push({ ref_code: grand.ref_code, rate_fee: settings.grand_center_rate || 0, rate_tuition: 0 });
 
-    for (const leader of centerLeaders) {
-      const leaderCenter = centerByRefCode.get(leader.ref_code);
-      if (!leaderCenter) continue;
+    // 리더별/날짜별 합산
+    for (const L of leaders) {
+      const meta = centerByRefCode.get(L.ref_code);
+      if (!meta) continue;
 
-      const prev = rewardMap.get(leader.ref_code) || {
-        center_id: leaderCenter.id,
-        name: leaderCenter.name,
-        wallet_address: leaderCenter.wallet_address,
-        amount_fee: 0,
-        amount_tuition: 0,
-      };
+      const key = `${L.ref_code}|${rdate}`;
+      const prev =
+        rewardMap.get(key) ||
+        {
+          ref_code: L.ref_code,
+          reward_date: rdate,
+          center_id: meta.id,
+          name: meta.name ?? null,
+          wallet_address: meta.wallet_address ?? null,
+          amount_fee: 0,
+          amount_tuition: 0,
+        };
 
-      prev.amount_fee += (fee.fee_commission || 0) * (leader.rate_fee / 100);
-      prev.amount_tuition += (fee.fee_tuition || 0) * (leader.rate_tuition / 100);
-      rewardMap.set(leader.ref_code, prev);
+      prev.amount_fee += baseFee * (L.rate_fee / 100);
+      prev.amount_tuition += baseTu * (L.rate_tuition / 100);
+      rewardMap.set(key, prev);
     }
   }
 
-  // ✅ 저장
-  const rows = Array.from(rewardMap.entries()).map(([ref_code, info]) => ({
-    ref_code,
-    center_id: info.center_id,
-    name: info.name,
-    wallet_address: info.wallet_address,
-    reward_date: today,
-    created_at: getKSTISOString(),
-    amount_fee: info.amount_fee,
-    amount_tuition: info.amount_tuition,
-    memo: "센터 리워드",
-  }));
+  // 5) 저장용 행 생성 (소수 고정)
+  const rows = Array.from(rewardMap.values())
+    .filter(r => r.amount_fee > 0 || r.amount_tuition > 0)
+    .map(r => ({
+      ref_code: r.ref_code,
+      center_id: r.center_id,
+      name: r.name,
+      wallet_address: r.wallet_address,
+      reward_date: r.reward_date,          // ← fee_records의 날짜 유지
+      created_at: nowIso,
+      amount_fee: +r.amount_fee.toFixed(6),
+      amount_tuition: +r.amount_tuition.toFixed(6),
+      memo: "센터 리워드",
+    }));
 
-  if (rows.length > 0) {
-    const { error } = await supabase.from("reward_centers").insert(rows);
+  if (!rows.length) return { success: true, inserted: 0, message: "저장할 리워드 없음" };
+
+  // 6) 대량 저장 (1000개씩)
+  const chunkSize = 1000;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await supabase.from("reward_centers").insert(chunk);
     if (error) {
-      console.error("❌ reward_centers insert 실패:", error.message);
-      return { success: false, message: error.message };
+      return { success: false, message: "reward_centers 저장 실패", detail: error.message, insertedUntil: i };
     }
-    console.log("✅ reward_centers 저장 성공:", rows.length, "건");
-  } else {
-    console.log("ℹ️ 저장할 리워드 없음");
   }
 
-  return { success: true };
+  return { success: true, inserted: rows.length };
 }
