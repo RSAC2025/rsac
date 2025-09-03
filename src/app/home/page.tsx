@@ -358,7 +358,7 @@ export default function HomePage() {
         <section className="bg-white rounded-xl shadow px-4 py-3">
           <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
           {[
-            { title: "300 PASS", price: "1 USDT / 1개월", image: "/pass-300.png" },
+            { title: "300 PASS", price: "300 USDT / 1개월", image: "/pass-300.png" },
             { title: "1800 PASS", price: "1800 USDT / 6개월", image: "/pass-1800.png" },
             { title: "3600 PASS", price: "3600 USDT / 12개월", image: "/pass-3600.png" },
             { title: "VIP PASS", price: "10000 USDT / 12개월", image: "/pass-vip.png" },
