@@ -140,9 +140,19 @@ export default function HomePage() {
         .maybeSingle();
 
       if (enrollments?.pass_type) {
-        setEnrolledTitle(enrollments.pass_type);
-        const until = enrollments.pass_expired_at?.toString().split("T")[0];
-        setEnrolledUntil(until);
+        const until = enrollments.pass_expired_at?.toString().split("T")[0] || null;
+
+        // ▼ [ADD] 만료 처리: 오늘(KST) > 만료일이면 수강 상태 해제
+        const todayKst = getKSTDateString(); // "YYYY-MM-DD"
+        const isExpired = until ? todayKst > until : false;
+
+        if (isExpired) {
+          setEnrolledTitle(null);
+          setEnrolledUntil(null);
+        } else {
+          setEnrolledTitle(enrollments.pass_type);
+          setEnrolledUntil(until);
+        }
       } else {
         setEnrolledTitle(null);
         setEnrolledUntil(null);
@@ -208,9 +218,9 @@ export default function HomePage() {
 
     const diffDays = Math.ceil((expireKst - startOfTodayKst) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 3) return "구독 만료 3일 전입니다.";
-    if (diffDays === 2) return "구독 만료 2일 전입니다";
-    if (diffDays === 1) return "구독 만료 1일 전입니다";
+    if (diffDays === 3) return "구독 만료 3일 전이예요";
+    if (diffDays === 2) return "구독 만료 2일 전이예요";
+    if (diffDays === 1) return "구독 만료 1일 전이예요";
     return null; // 그 외에는 기본 문구 사용
   }, [enrolledUntil]);
 
@@ -358,7 +368,7 @@ export default function HomePage() {
         <section className="bg-white rounded-xl shadow px-4 py-3">
           <h3 className="text-sm font-bold text-blue-500 mb-2">패스권 구입하기</h3>
           {[
-            { title: "300 PASS", price: "300 USDT / 1개월", image: "/pass-300.png" },
+            { title: "300 PASS", price: "1 USDT / 1개월", image: "/pass-300.png" },
             { title: "1800 PASS", price: "1800 USDT / 6개월", image: "/pass-1800.png" },
             { title: "3600 PASS", price: "3600 USDT / 12개월", image: "/pass-3600.png" },
             { title: "VIP PASS", price: "10000 USDT / 12개월", image: "/pass-vip.png" },
